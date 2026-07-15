@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { Bookmark, Download, Eye, Heart, TrendingUp, Upload, Users } from "lucide-react";
+import { Bookmark, Download, TrendingUp, Upload, Users } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -45,15 +45,14 @@ function Dashboard() {
 
   const activityData = useMemo(() => {
     const today = new Date();
-    const map: Record<string, { day: string; uploads: number; downloads: number; views: number }> =
-      {};
+    const map: Record<string, { day: string; uploads: number; downloads: number }> = {};
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const key = DAY_LABELS[d.getDay()];
       if (!(key in map)) {
-        map[key] = { day: key, uploads: 0, downloads: 0, views: 0 };
+        map[key] = { day: key, uploads: 0, downloads: 0 };
       }
     }
 
@@ -64,7 +63,6 @@ function Dashboard() {
         if (key in map) {
           map[key].uploads += 1;
           map[key].downloads += n.downloads ?? 0;
-          map[key].views += n.views ?? 0;
         }
       }
     });
@@ -184,7 +182,7 @@ function Dashboard() {
               <div>
                 <h3 className="font-semibold">Activity — last 7 days</h3>
                 <p className="text-xs text-muted-foreground">
-                  Views &amp; downloads across all notes
+                  Uploads &amp; downloads across all notes
                 </p>
               </div>
               <div className="inline-flex items-center gap-1 text-xs text-success">
@@ -216,7 +214,7 @@ function Dashboard() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="views"
+                    dataKey="uploads"
                     stroke="#6366F1"
                     fill="url(#g1)"
                     strokeWidth={2}
@@ -299,7 +297,7 @@ function Dashboard() {
           <div className="glass rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Top performing notes</h3>
-              <Eye className="h-4 w-4 text-muted-foreground" />
+              <Download className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-3">
               {myNotes

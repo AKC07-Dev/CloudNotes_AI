@@ -33,17 +33,25 @@ function Auth() {
       setLoading(true);
 
       if (mode === "signup") {
-        await api.signup({
+        const signupRes = await api.signup({
           fullName,
           username: generateUsername(fullName),
           email,
           password,
         });
 
-        // Automatically log in after successful signup
-        const res = await api.login({ email, password });
-        saveToken(res.data.token);
-        saveUser(res.data.user);
+        const authData = signupRes.data as
+          | { token?: string; user?: Parameters<typeof saveUser>[0] }
+          | undefined;
+
+        if (authData?.token && authData?.user) {
+          saveToken(authData.token);
+          saveUser(authData.user);
+        } else {
+          const loginRes = await api.login({ email, password });
+          saveToken(loginRes.data.token);
+          saveUser(loginRes.data.user);
+        }
 
         toast.success("Account created successfully!");
         nav({ to: "/dashboard" });

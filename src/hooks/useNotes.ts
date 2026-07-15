@@ -115,35 +115,86 @@ export function useUploadNotePDF() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ metadata, file, onProgress }: UploadNotePDFPayload) => {
-      // Step 1: create the note record
-      const createRes = await api.createNote(metadata);
-      const noteId: string = createRes.data?.noteId ?? createRes.data?.id;
+    mutationFn: async ({
+      metadata,
+      file,
+      onProgress,
+    }: UploadNotePDFPayload) => {
 
-      if (!noteId) {
-        throw new Error("Server did not return a noteId.");
+      // --------------------------------------------------
+      // STEP 1
+      // Create Note
+      // --------------------------------------------------
+
+      const createRes = await api.createNote(metadata);
+
+console.log("createRes:", createRes);
+console.log("createRes.data:", createRes.data);
+console.log("createRes.data.noteId:", createRes.data?.noteId);
+
+const noteId =
+  createRes.data?.noteId ||
+  createRes.data?.id;
+
+console.log("Resolved noteId:", noteId);
+
+if (!noteId) {
+  throw new Error("Server did not return a noteId.");
+}
+
+      onProgress?.(20);
+
+      // --------------------------------------------------
+      // STEP 2
+      // Get Upload URL
+      // --------------------------------------------------
+
+      const uploadRes =
+        await api.getUploadUrl(noteId);
+
+        console.log("uploadRes =", uploadRes);
+console.log("uploadRes.data =", uploadRes.data);
+
+const uploadUrl =
+uploadRes.data?.uploadUrl;
+      if (!uploadUrl) {
+        throw new Error("Upload URL not returned.");
       }
 
-      // Step 2: request a presigned upload URL
-      const urlRes = await api.getUploadUrl(noteId);
-      const { uploadUrl } = urlRes.data as {
-        uploadUrl: string;
-        pdfKey: string;
-        expiresIn: number;
-      };
+      onProgress?.(40);
 
-      // Step 3: upload directly to S3 (no auth header)
-      onProgress?.(50);
-      await uploadFileToS3(uploadUrl, file);
+      // --------------------------------------------------
+      // STEP 3
+      // Upload PDF
+      // --------------------------------------------------
+
+      await uploadFileToS3(
+        uploadUrl,
+        file
+      );
+
       onProgress?.(100);
 
       return noteId;
     },
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notesKeys.all });
+
+      queryClient.invalidateQueries({
+        queryKey: notesKeys.all,
+      });
+
+      toast.success(
+        "Note uploaded successfully!"
+      );
     },
+
     onError: (err: Error) => {
-      toast.error(err.message || "Upload failed.");
+
+      toast.error(
+        err.message ||
+          "Upload failed."
+      );
     },
   });
 }
@@ -178,6 +229,7 @@ export interface NoteData {
   tags: string[];
   visibility: string;
   pdfKey?: string;
+  thumbnailUrl?: string;
   views?: number;
   downloads?: number;
   likes?: number;

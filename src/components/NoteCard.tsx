@@ -1,7 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Bookmark, Download, Eye, Heart, MessageCircle, Share2, FileText } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Bookmark, Download, Heart, MessageCircle, Share2, FileText } from "lucide-react";
 import { useDownloadNote, type NoteData } from "@/hooks/useNotes";
 import {
   useLikeNote,
@@ -11,6 +9,8 @@ import {
   useDeleteBookmark,
   useBookmarks,
 } from "@/hooks/useInteractions";
+import { NoteThumbnail } from "@/components/NoteThumbnail";
+import { shareNote } from "@/lib/share";
 
 function fmt(n: number) {
   if (n >= 1000) return (n / 1000).toFixed(1) + "k";
@@ -20,7 +20,7 @@ function fmt(n: number) {
 export function NoteCard({ note }: { note: NoteData }) {
   const downloadNote = useDownloadNote();
 
-  const { data: likes = [] } = useLikes();
+  const { data: likeData } = useLikes(note.noteId);
   const { data: bookmarks = [] } = useBookmarks();
 
   const likeNote = useLikeNote();
@@ -28,14 +28,13 @@ export function NoteCard({ note }: { note: NoteData }) {
   const addBookmark = useAddBookmark();
   const deleteBookmark = useDeleteBookmark();
 
-  const isLiked = likes.includes(note.noteId);
+  const isLiked = likeData?.liked ?? false;
   const isBookmarked = bookmarks.some((b) => b.noteId === note.noteId);
 
-  const views = note.views ?? 0;
   const downloads = note.downloads ?? 0;
+  const likeCount = likeData?.likes ?? note.likes ?? 0;
   const tags = note.tags ?? [];
 
-  // Gracefully handle potentially-missing createdAt
   const dateLabel = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "";
 
   return (
@@ -45,10 +44,11 @@ export function NoteCard({ note }: { note: NoteData }) {
         params={{ id: note.noteId }}
         className="relative block aspect-[4/3] overflow-hidden"
       >
-        <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105 bg-gradient-to-br from-primary/60 to-secondary/60" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <FileText className="h-12 w-12 text-white/30" />
-        </div>
+        <NoteThumbnail
+          thumbnailUrl={note.thumbnailUrl}
+          title={note.title}
+          className="transition-transform duration-500 group-hover:scale-105"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         <div className="absolute top-3 left-3 flex gap-2">
           <span className="glass-strong text-xs px-2.5 py-1 rounded-full font-medium">
@@ -109,9 +109,6 @@ export function NoteCard({ note }: { note: NoteData }) {
 
         <div className="flex items-center justify-between pt-3 border-t border-white/5 text-muted-foreground text-xs">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Eye className="h-3.5 w-3.5" /> {fmt(views)}
-            </span>
             <button
               onClick={async () => {
                 try {
@@ -138,10 +135,11 @@ export function NoteCard({ note }: { note: NoteData }) {
                 }
               }}
               disabled={likeNote.isPending || unlikeNote.isPending}
-              className="h-8 w-8 grid place-items-center rounded-lg hover:bg-white/5 transition disabled:opacity-60"
+              className="h-8 px-2 grid place-items-center rounded-lg hover:bg-white/5 transition disabled:opacity-60 inline-flex items-center gap-1"
               aria-label="Like"
             >
               <Heart className={`h-4 w-4 ${isLiked ? "fill-danger text-danger" : ""}`} />
+              {likeCount > 0 && <span>{fmt(likeCount)}</span>}
             </button>
             <Link
               to="/note/$id"
@@ -154,9 +152,7 @@ export function NoteCard({ note }: { note: NoteData }) {
             <button
               onClick={(e) => {
                 e.preventDefault();
-                const url = `${window.location.origin}/note/${note.noteId}`;
-                navigator.clipboard.writeText(url);
-                toast.success("Link copied");
+                void shareNote(note.noteId, note.title);
               }}
               className="h-8 w-8 grid place-items-center rounded-lg hover:bg-white/5 transition"
               aria-label="Share"

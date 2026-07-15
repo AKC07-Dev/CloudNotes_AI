@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type LikeData } from "@/lib/api";
 import { toast } from "sonner";
+import { notesKeys } from "@/hooks/useNotes";
 
 export const interactionKeys = {
-  likes: ["likes"] as const,
+  likes: (noteId: string) => ["likes", noteId] as const,
   comments: (noteId: string) => ["comments", noteId] as const,
   bookmarks: ["bookmarks"] as const,
   follows: ["follows"] as const,
@@ -13,14 +14,25 @@ export const interactionKeys = {
 // LIKES
 // ======================
 
-export function useLikes() {
+export function useLikes(noteId: string) {
   return useQuery({
-    queryKey: interactionKeys.likes,
+    queryKey: interactionKeys.likes(noteId),
     queryFn: async () => {
-      const res = await api.getLikes();
-      return (res.data ?? res) as string[]; // Assuming array of noteIds
+      const res = await api.getLikes(noteId);
+      return res.data as LikeData;
     },
+    enabled: !!noteId,
   });
+}
+
+function invalidateLikeQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  noteId: string,
+) {
+  queryClient.invalidateQueries({ queryKey: interactionKeys.likes(noteId) });
+  queryClient.invalidateQueries({ queryKey: notesKeys.detail(noteId) });
+  queryClient.invalidateQueries({ queryKey: ["notes", "mine"] });
+  queryClient.invalidateQueries({ queryKey: ["notes", "public"] });
 }
 
 export function useLikeNote() {
@@ -28,23 +40,11 @@ export function useLikeNote() {
 
   return useMutation({
     mutationFn: (noteId: string) => api.likeNote({ noteId }),
-    onMutate: async (noteId) => {
-      await queryClient.cancelQueries({ queryKey: interactionKeys.likes });
-      const previousLikes = queryClient.getQueryData<string[]>(interactionKeys.likes);
-
-      if (previousLikes && !previousLikes.includes(noteId)) {
-        queryClient.setQueryData<string[]>(interactionKeys.likes, [...previousLikes, noteId]);
-      }
-      return { previousLikes };
-    },
-    onError: (err, noteId, context) => {
-      if (context?.previousLikes) {
-        queryClient.setQueryData(interactionKeys.likes, context.previousLikes);
-      }
+    onError: () => {
       toast.error("Failed to like note.");
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: interactionKeys.likes });
+    onSettled: (_data, _error, noteId) => {
+      invalidateLikeQueries(queryClient, noteId);
     },
   });
 }
@@ -54,26 +54,11 @@ export function useUnlikeNote() {
 
   return useMutation({
     mutationFn: (noteId: string) => api.unlikeNote({ noteId }),
-    onMutate: async (noteId) => {
-      await queryClient.cancelQueries({ queryKey: interactionKeys.likes });
-      const previousLikes = queryClient.getQueryData<string[]>(interactionKeys.likes);
-
-      if (previousLikes) {
-        queryClient.setQueryData<string[]>(
-          interactionKeys.likes,
-          previousLikes.filter((id) => id !== noteId),
-        );
-      }
-      return { previousLikes };
-    },
-    onError: (err, noteId, context) => {
-      if (context?.previousLikes) {
-        queryClient.setQueryData(interactionKeys.likes, context.previousLikes);
-      }
+    onError: () => {
       toast.error("Failed to unlike note.");
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: interactionKeys.likes });
+    onSettled: (_data, _error, noteId) => {
+      invalidateLikeQueries(queryClient, noteId);
     },
   });
 }
@@ -160,29 +145,47 @@ export function useDeleteBookmark() {
 // FOLLOWS
 // ======================
 
+interface FollowUser {
+  userId: string;
+  fullName: string;
+  username: string;
+  profileImage: string;
+  bio: string;
+  followers: number;
+  following: number;
+}
+
 export function useFollows() {
   return useQuery({
     queryKey: interactionKeys.follows,
     queryFn: async () => {
       const res = await api.getFollows();
-      return (res.data ?? res) as string[]; // Array of followed userIds
+      return res.data ?? [];
     },
   });
 }
+    
+
 
 export function useFollowUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (followedId: string) => api.followUser({ followedId }),
-    onMutate: async (followedId) => {
-      await queryClient.cancelQueries({ queryKey: interactionKeys.follows });
-      const previous = queryClient.getQueryData<string[]>(interactionKeys.follows);
-      if (previous && !previous.includes(followedId)) {
-        queryClient.setQueryData<string[]>(interactionKeys.follows, [...previous, followedId]);
-      }
-      return { previous };
-    },
+   mutationFn: (userId: string) => api.followUser({ userId }),
+    onMutate: async (userId) => {
+  await queryClient.cancelQueries({ queryKey: interactionKeys.follows });
+
+  const previous = queryClient.getQueryData<string[]>(interactionKeys.follows);
+
+  if (previous && !previous.includes(userId)) {
+    queryClient.setQueryData<string[]>(
+      interactionKeys.follows,
+      [...previous, userId]
+    );
+  }
+
+  return { previous };
+},
     onError: (err, id, context) => {
       if (context?.previous) {
         queryClient.setQueryData(interactionKeys.follows, context.previous);
@@ -199,14 +202,15 @@ export function useUnfollowUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (followedId: string) => api.unfollowUser({ followedId }),
-    onMutate: async (followedId) => {
+   mutationFn: (userId: string) =>
+    api.unfollowUser({ userId }),
+    onMutate: async (userId) => {
       await queryClient.cancelQueries({ queryKey: interactionKeys.follows });
       const previous = queryClient.getQueryData<string[]>(interactionKeys.follows);
       if (previous) {
         queryClient.setQueryData<string[]>(
           interactionKeys.follows,
-          previous.filter((id) => id !== followedId),
+          previous.filter((id) => id !== userId)
         );
       }
       return { previous };

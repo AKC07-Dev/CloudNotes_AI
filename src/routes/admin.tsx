@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   Cloud,
   Download,
-  Eye,
+  FileText,
   HardDrive,
   TrendingUp,
   Users,
@@ -76,12 +76,12 @@ function AdminPage() {
   // Compute activity chart: notes created per day for last 7 days
   const today = new Date();
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const activityMap: Record<string, { uploads: number; downloads: number; views: number }> = {};
+  const activityMap: Record<string, { uploads: number; downloads: number }> = {};
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const key = dayLabels[d.getDay()];
-    activityMap[key] = { uploads: 0, downloads: 0, views: 0 };
+    activityMap[key] = { uploads: 0, downloads: 0 };
   }
   publicNotes.forEach((n) => {
     if (n.createdAt) {
@@ -90,7 +90,6 @@ function AdminPage() {
       if (key in activityMap) {
         activityMap[key].uploads += 1;
         activityMap[key].downloads += n.downloads ?? 0;
-        activityMap[key].views += n.views ?? 0;
       }
     }
   });
@@ -118,7 +117,7 @@ function AdminPage() {
             label="Total Notes"
             value={totalNotes}
             delta="public notes"
-            icon={Eye}
+            icon={FileText}
             accent="primary"
           />
           <StatCard
@@ -180,7 +179,7 @@ function AdminPage() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="views"
+                    dataKey="uploads"
                     stroke="#6366F1"
                     fill="url(#a1)"
                     strokeWidth={2}

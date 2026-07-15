@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useMyNotes } from "@/hooks/useNotes";
 import { useFollows } from "@/hooks/useInteractions";
+import { useBookmarks } from "@/hooks/useInteractions";
+import { usePublicNotes } from "@/hooks/useNotes";
 
 export const Route = createFileRoute("/profile")({ component: Profile });
 
@@ -66,11 +68,22 @@ function Profile() {
   const { data: myNotes = [], isLoading: notesLoading } = useMyNotes();
   const { data: follows = [] } = useFollows();
 
-  const avatar = profile?.avatar ?? FALLBACK_AVATAR;
+  const avatar = profile?.profileImage ?? profile?.avatar ?? FALLBACK_AVATAR;
   const name = profile?.fullName ?? "—";
   const handle = profile?.username ?? profile?.userId ?? "";
   const bio = profile?.bio ?? "";
   const department = profile?.department ?? "";
+
+  const { data: bookmarks = [], isLoading: bookmarksLoading } = useBookmarks();
+
+const { data: allNotes = [], isLoading: publicNotesLoading } = usePublicNotes();
+
+
+const bookmarkedNotes = useMemo(() => {
+  return bookmarks
+    .map((b) => allNotes.find((n) => n.noteId === b.noteId))
+    .filter(Boolean);
+}, [bookmarks, allNotes]);
 
   // Derive join date from profile.createdAt if available
   const joinedText = useMemo(() => {
@@ -181,9 +194,7 @@ function Profile() {
               )}
             </div>
             <div className="flex gap-2">
-              <button className="h-10 px-4 rounded-xl glass hover:bg-white/10 text-sm inline-flex items-center gap-2">
-                <Edit3 className="h-4 w-4" /> Edit
-              </button>
+              
               <button
                 onClick={() => {
                   const url = `${window.location.origin}/profile/${handle}`;
@@ -241,12 +252,20 @@ function Profile() {
             </div>
           )}
           {tab === "Bookmarks" && (
-            <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
-              <div className="col-span-full text-center py-10 text-muted-foreground text-sm">
-                Bookmarks coming soon.
-              </div>
-            </div>
-          )}
+  <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-16">
+    {bookmarksLoading || publicNotesLoading ? (
+      <div className="col-span-full text-center py-10 text-muted-foreground">
+        Loading bookmarks...
+      </div>
+    ) : bookmarkedNotes.length === 0 ? (
+      <div className="col-span-full text-center py-10 text-muted-foreground">
+        No bookmarks yet.
+      </div>
+    ) : (
+      bookmarkedNotes.map((note) => <NoteCard key={note.noteId} note={note} />)
+    )}
+  </div>
+)}
           {tab === "Timeline" && (
             <div className="mt-6 glass rounded-2xl p-6 pb-16">
               <div className="space-y-6 relative">

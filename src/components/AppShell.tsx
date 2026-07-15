@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const admin = isAdmin();
 
-  const userAvatar = profile?.avatar ?? FALLBACK_AVATAR;
+  const userAvatar = profile?.profileImage ?? profile?.avatar ?? FALLBACK_AVATAR;
   const userName = profile?.fullName ?? "User";
   const userHandle = profile?.username ?? profile?.userId ?? "";
 

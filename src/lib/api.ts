@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import { authHeader } from "./auth";
+import { authHeader, getToken } from "./auth";
 
 async function request(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(API_BASE_URL + endpoint, {
@@ -27,6 +27,28 @@ export interface NotesQueryParams {
   subject?: string;
   department?: string;
   semester?: number;
+}
+
+export interface AuthUser {
+  userId: string;
+  email: string;
+  fullName: string;
+  username: string;
+  avatar?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export interface LikeData {
+  likes: number;
+  liked: boolean;
+}
+
+export interface LikeResponse extends LikeData {
+  noteId: string;
 }
 
 export const api = {
@@ -61,10 +83,10 @@ export const api = {
     bio?: string;
     department?: string;
     semester?: number;
-    avatar?: string;
+    profileImage?: string;
   }) {
-    return request("/users/profile", {
-      method: "POST",
+    return request("/profile", {
+      method: "PUT",
       body: JSON.stringify(payload),
     });
   },
@@ -76,9 +98,12 @@ export const api = {
    * NOTE: If this endpoint does not yet exist on the backend,
    * it will throw an error. The UI handles this gracefully.
    */
-  getProfileImageUploadUrl() {
+  getProfileImageUploadUrl(fileType: string) {
     return request("/users/profile/avatar-upload-url", {
       method: "POST",
+      body: JSON.stringify({
+        fileType,
+      }),
     });
   },
 
@@ -149,27 +174,33 @@ export const api = {
     return request(`/notes/${id}/download`);
   },
 
+
+
+
   // ======================
   // FOLLOW
   // ======================
 
-  followUser(payload: { followedId: string }) {
-    return request("/follow", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  },
+  followUser(payload: { userId: string }) {
+  return request("/follow", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+},
 
-  unfollowUser(payload: { followedId: string }) {
-    return request("/follow", {
-      method: "DELETE",
-      body: JSON.stringify(payload),
-    });
-  },
-
+unfollowUser(payload: { userId: string }) {
+  return request("/follow", {
+    method: "DELETE",
+    body: JSON.stringify(payload),
+  });
+},
   getFollows() {
     return request("/follow");
   },
+
+  getFollowing() {
+  return request("/follow");
+},
 
   // ======================
   // LIKES
@@ -189,8 +220,8 @@ export const api = {
     });
   },
 
-  getLikes() {
-    return request("/likes");
+  getLikes(noteId: string) {
+    return request(`/likes?noteId=${encodeURIComponent(noteId)}`);
   },
 
   // ======================
@@ -198,33 +229,33 @@ export const api = {
   // ======================
 
   getComments(noteId: string) {
-  return request(`/comments?noteId=${noteId}`);
-},
+    return request(`/comments?noteId=${noteId}`);
+  },
 
- createComment(payload: { noteId: string; comment: string }) {
-  return request(`/comment`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-},
+  createComment(payload: { noteId: string; comment: string }) {
+    return request(`/comment`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 
   updateComment(
- id:string,
- payload:{
-   comment:string
- }
-){
- return request(`/comments/${id}`,{
-   method:"PUT",
-   body:JSON.stringify(payload),
- });
-},
+    id: string,
+    payload: {
+      comment: string;
+    },
+  ) {
+    return request(`/comments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
 
-deleteComment(id:string){
- return request(`/comments/${id}`,{
-   method:"DELETE",
- });
-},
+  deleteComment(id: string) {
+    return request(`/comments/${id}`, {
+      method: "DELETE",
+    });
+  },
 
   // ======================
   // BOOKMARKS
@@ -254,6 +285,28 @@ deleteComment(id:string){
       body: JSON.stringify(payload),
     });
   },
+
+  // ======================
+  // CHAT
+  // ======================
+
+  getChats() {
+    const token = getToken();
+    return request(`/chats?token=${token}`);
+  },
+
+  getMessages(receiverId: string) {
+    const token = getToken();
+    return request(`/messages?receiverId=${receiverId}&token=${token}`);
+  },
+
+  deleteMessage(conversationId: string, createdAt: string) {
+    const token = getToken();
+    return request(`/messages?token=${token}`, {
+      method: "DELETE",
+      body: JSON.stringify({ conversationId, createdAt }),
+    });
+  },
 };
 
 function buildQueryString(params: { [key: string]: unknown }): string {
@@ -269,16 +322,26 @@ function buildQueryString(params: { [key: string]: unknown }): string {
  * No auth header is sent — S3 presigned URLs don't accept it.
  * Uses the actual file's MIME type so this works for PDFs and images alike.
  */
-export async function uploadFileToS3(presignedUrl: string, file: File): Promise<void> {
-  const res = await fetch(presignedUrl, {
+/**
+ * Upload file directly to S3 using a presigned URL.
+ */
+export async function uploadFileToS3(
+  presignedUrl: string,
+  file: File
+): Promise<void> {
+  const response = await fetch(presignedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type || "application/octet-stream",
+      "Content-Type": file.type,
     },
     body: file,
   });
 
-  if (!res.ok) {
-    throw new Error("Failed to upload file to S3.");
+  if (!response.ok) {
+    const text = await response.text();
+
+    throw new Error(
+      `S3 upload failed (${response.status}) ${text}`
+    );
   }
 }

@@ -112,7 +112,7 @@ function SettingsPage() {
                 <Panel title="Profile" desc="How others see you on CloudNotes.">
                   <div className="flex items-center gap-4">
                     <img
-                      src={profile?.avatar ?? FALLBACK_AVATAR}
+                      src={profile?.profileImage ?? profile?.avatar ?? FALLBACK_AVATAR}
                       className="h-16 w-16 rounded-xl object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = FALLBACK_AVATAR;

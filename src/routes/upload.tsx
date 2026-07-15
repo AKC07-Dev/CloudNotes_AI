@@ -312,7 +312,7 @@ function UploadPage() {
               </div>
               <ul className="mt-2 space-y-2 text-xs text-muted-foreground">
                 <li>• Add "interview" to tags — trending in your department</li>
-                <li>• Similar notes get 3.1× more views with a detailed description</li>
+                <li>• Similar notes get 3.1× more downloads with a detailed description</li>
                 <li>• Public notes get 4× more downloads than private ones</li>
               </ul>
             </div>

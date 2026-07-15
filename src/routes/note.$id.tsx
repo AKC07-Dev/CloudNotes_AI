@@ -4,17 +4,14 @@ import {
   BadgeCheck,
   Bookmark,
   Download,
-  Eye,
   Heart,
   MessageCircle,
   Share2,
-  ThumbsUp,
   FileText,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { NoteCard } from "@/components/NoteCard";
-import { toast } from "sonner";
+import { NoteThumbnail } from "@/components/NoteThumbnail";
+import { shareNote } from "@/lib/share";
 import { useState } from "react";
 import { useNote, usePublicNotes, useDownloadNote } from "@/hooks/useNotes";
 import {
@@ -33,19 +30,19 @@ import {
 } from "@/hooks/useInteractions";
 import { getUser } from "@/lib/auth";
 
-
 export const Route = createFileRoute("/note/$id")({ component: NoteDetail });
 
 function NoteDetail() {
   const { id } = Route.useParams();
-  const [page, setPage] = useState(1);
 
   const { data: note, isLoading, isError } = useNote(id);
+  console.log("NOTE:", note);
+  console.log("thumbnailUrl:", note?.thumbnailUrl);
   const { data: publicNotes = [] } = usePublicNotes();
   const downloadNote = useDownloadNote();
 
   // Interactions
-  const { data: likes = [] } = useLikes();
+  const { data: likeData } = useLikes(id);
   const { data: bookmarks = [] } = useBookmarks();
   const { data: follows = [] } = useFollows();
 
@@ -56,11 +53,15 @@ function NoteDetail() {
   const followUser = useFollowUser();
   const unfollowUser = useUnfollowUser();
 
-  
-
-  const isLiked = note ? likes.includes(note.noteId) : false;
+  const isLiked = likeData?.liked ?? false;
+  const likeCount = likeData?.likes ?? note?.likes ?? 0;
   const isBookmarked = note ? bookmarks.some((b) => b.noteId === note.noteId) : false;
-  const isFollowing = note?.author?.userId ? follows.includes(note.author.userId) : false;
+  const isFollowing =
+    note?.author?.userId
+      ? follows.some((user) =>
+          typeof user === "string" ? user === note.author?.userId : user.userId === note.author?.userId,
+        )
+      : false;
 
   // Comments
   const { data: comments = [], isLoading: commentsLoading } = useComments(id);
@@ -96,7 +97,6 @@ function NoteDetail() {
     note.author?.avatar ??
     `https://ui-avatars.com/api/?background=6366F1&color=fff&name=${encodeURIComponent(authorName)}`;
   const authorDept = note.author?.department ?? note.department ?? "";
-  const totalPages = 1; // Backend doesn't expose page count; set to 1
 
   return (
     <AppShell>
@@ -111,35 +111,20 @@ function NoteDetail() {
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="glass rounded-2xl overflow-hidden">
-              <div
-                className="aspect-[16/10] relative"
-                style={{ background: "linear-gradient(135deg,#6366F1,#06B6D4)" }}
-              >
-                <div className="absolute inset-0 grid place-items-center">
-                  <div className="glass-strong rounded-2xl p-6 text-center">
-                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-80" />
-                    <div className="text-sm">
-                      PDF Preview · Page {page} of {totalPages}
+              <div className="aspect-[16/10] relative overflow-hidden">
+                <NoteThumbnail
+                  thumbnailUrl={note.thumbnailUrl}
+                  title={note.title}
+                  iconClassName="h-10 w-10"
+                />
+                {!note.thumbnailUrl && (
+                  <div className="absolute inset-0 grid place-items-center pointer-events-none">
+                    <div className="glass-strong rounded-2xl p-6 text-center">
+                      <FileText className="h-10 w-10 mx-auto mb-2 opacity-80" />
+                      <div className="text-sm">PDF Preview</div>
                     </div>
                   </div>
-                </div>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 glass-strong rounded-full px-2 py-1">
-                  <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    className="h-8 w-8 grid place-items-center rounded-full hover:bg-white/10"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-xs px-2">
-                    {page} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    className="h-8 w-8 grid place-items-center rounded-full hover:bg-white/10"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+                )}
               </div>
             </div>
 
@@ -208,39 +193,37 @@ function NoteDetail() {
                   {comments.map((c) => (
                     <div key={c.commentId} className="flex gap-3">
                       <img
-  src={
-    c.author?.avatar ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      c.author?.name || "User"
-    )}`
-  }
-  className="h-9 w-9 rounded-full object-cover shrink-0"
-/>
+                        src={
+                          c.author?.avatar ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            c.author?.name || "User",
+                          )}`
+                        }
+                        className="h-9 w-9 rounded-full object-cover shrink-0"
+                      />
                       <div className="flex-1">
                         <div className="flex items-baseline justify-between">
-                          <div className="text-sm font-medium">
-  {c.author?.name || "User"}
-</div>
+                          <div className="text-sm font-medium">{c.author?.name || "User"}</div>
                           <div className="flex items-center gap-2">
-  <div className="text-xs text-muted-foreground">
-    {new Date(c.createdAt).toLocaleDateString()}
-  </div>
-  {currentUser?.userId === c.userId && (
-  <button
-    onClick={() => {
-      if (confirm("Delete this comment?")) {
-        deleteComment.mutate({
-          id: c.commentId,
-          noteId: note.noteId,
-        });
-      }
-    }}
-    className="text-xs text-danger hover:underline"
-  >
-    Delete
-  </button>
-)}
-</div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(c.createdAt).toLocaleDateString()}
+                            </div>
+                            {currentUser?.userId === c.userId && (
+                              <button
+                                onClick={() => {
+                                  if (confirm("Delete this comment?")) {
+                                    deleteComment.mutate({
+                                      id: c.commentId,
+                                      noteId: note.noteId,
+                                    });
+                                  }
+                                }}
+                                className="text-xs text-danger hover:underline"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm mt-1 text-muted-foreground">{c.comment}</p>
                       </div>
@@ -281,10 +264,9 @@ function NoteDetail() {
                   {isFollowing ? "Following" : "Follow"}
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+              <div className="grid grid-cols-2 gap-2 mt-4 text-center">
                 <StatBox label="Downloads" value={note.downloads ?? 0} />
-                <StatBox label="Likes" value={note.likes ?? 0} />
-                <StatBox label="Views" value={note.views ?? 0} />
+                <StatBox label="Likes" value={likeCount} />
               </div>
             </div>
 
@@ -322,8 +304,7 @@ function NoteDetail() {
                   icon={Share2}
                   label="Share"
                   onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success("Link copied");
+                    void shareNote(note.noteId, note.title);
                   }}
                 />
               </div>
@@ -332,13 +313,12 @@ function NoteDetail() {
             <div className="glass rounded-2xl p-6">
               <h4 className="text-sm font-semibold mb-3">Stats</h4>
               <div className="space-y-2 text-sm">
-                <Row icon={Eye} label="Views" value={(note.views ?? 0).toLocaleString()} />
                 <Row
                   icon={Download}
                   label="Downloads"
                   value={(note.downloads ?? 0).toLocaleString()}
                 />
-                <Row icon={Heart} label="Likes" value={(note.likes ?? 0).toLocaleString()} />
+                <Row icon={Heart} label="Likes" value={likeCount.toLocaleString()} />
                 <Row icon={MessageCircle} label="Comments" value={comments.length} />
               </div>
             </div>

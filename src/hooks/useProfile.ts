@@ -47,31 +47,37 @@ export function useUploadProfileImage() {
 
   return useMutation({
     mutationFn: async (file: File) => {
-      // Step 1: get presigned upload URL from backend
-      const urlRes = await api.getProfileImageUploadUrl();
-      const { uploadUrl, objectUrl } = urlRes.data as {
+      // Step 1: Request a presigned upload URL
+      const urlRes = await api.getProfileImageUploadUrl(file.type);
+
+      const { uploadUrl, imageUrl } = urlRes.data as {
         uploadUrl: string;
-        objectUrl: string;
+        imageUrl: string;
       };
 
-      // Step 2: upload directly to S3
+      // Step 2: Upload the image directly to S3
       await uploadFileToS3(uploadUrl, file);
 
-      // Step 3: save the S3 object URL in the profile
-      await api.updateProfile({ avatar: objectUrl });
+      // Step 3: Save the image URL in the user's profile
+      await api.updateProfile({
+        profileImage: imageUrl,
+      });
 
-      return objectUrl;
+      return imageUrl;
     },
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: PROFILE_QUERY_KEY,
+      });
+
       toast.success("Profile picture updated!");
     },
+
     onError: (err: Error) => {
-      toast.error(
-        err.message?.includes("404") || err.message?.includes("not found")
-          ? "Profile image upload is not yet supported by the backend."
-          : err.message || "Failed to upload profile picture.",
-      );
+      console.error("Profile image upload failed:", err);
+
+      toast.error(err.message || "Failed to upload profile picture.");
     },
   });
 }
@@ -86,6 +92,7 @@ export interface ProfileData {
   department?: string;
   semester?: number;
   username?: string;
+  profileImage?: string;
   avatar?: string;
   followers?: number;
   following?: number;
@@ -100,5 +107,5 @@ export interface UpdateProfilePayload {
   bio?: string;
   department?: string;
   semester?: number;
-  avatar?: string;
+  profileImage?: string;
 }
