@@ -173,6 +173,10 @@ uploadRes.data?.uploadUrl;
         file
       );
 
+      await api.updateNote(noteId, {
+  pdfKey: uploadRes.data.pdfKey
+});
+
       onProgress?.(100);
 
       return noteId;

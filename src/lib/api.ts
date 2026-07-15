@@ -140,18 +140,23 @@ export const api = {
     return request(`/notes/${id}`);
   },
 
-  updateNote(
-    id: string,
-    payload: {
-      title?: string;
-      description?: string;
-      subject?: string;
-      department?: string;
-      semester?: number;
-      tags?: string[];
-      visibility?: string;
-    },
-  ) {
+  
+updateNote(
+ id:string,
+ payload:{
+   title?:string;
+   description?:string;
+   subject?:string;
+   department?:string;
+   semester?:number;
+   tags?:string[];
+   visibility?:string;
+   pdfKey?:string;
+   thumbnailKey?:string;
+ }
+)
+  
+  {
     return request(`/notes/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
