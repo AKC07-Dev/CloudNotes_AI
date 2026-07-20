@@ -52,8 +52,11 @@ function AdminPage() {
 
   // Fetch real public notes for the "Most downloaded" list and trending subjects
   const { data: publicNotes = [], isLoading: notesLoading } = usePublicNotes();
+  const { data: stats, isLoading, error } = useAdminStats();
 
-const { data: stats } = useAdminStats();
+console.log("stats:", stats);
+console.log("loading:", isLoading);
+console.log("error:", error);
 
   if (!isAdmin()) {
     // Render nothing while redirecting
