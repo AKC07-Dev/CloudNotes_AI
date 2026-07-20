@@ -3,15 +3,6 @@ import { api, type LikeData } from "@/lib/api";
 import { toast } from "sonner";
 import { notesKeys } from "@/hooks/useNotes";
 
-import { useQuery } from "@tanstack/react-query";
-import { getAdminStats } from "@/lib/api";
-
-export function useAdminStats() {
-  return useQuery({
-    queryKey: ["admin-stats"],
-    queryFn: getAdminStats,
-  });
-}
 
 export const interactionKeys = {
   likes: (noteId: string) => ["likes", noteId] as const,
