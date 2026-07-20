@@ -33,7 +33,9 @@ export function StatCard({
         </div>
       </div>
       <div className="mt-3 flex items-end gap-2">
-        <AnimatedCounter value={value} className="text-3xl font-bold font-display" />
+        <div className="text-3xl font-bold font-display">
+  {value}
+</div>
         {delta && <span className="text-xs text-success mb-1.5">{delta}</span>}
       </div>
     </div>
