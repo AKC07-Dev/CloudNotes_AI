@@ -30,6 +30,8 @@ import { useEffect } from "react";
 import { isAdmin } from "@/lib/auth";
 import { usePublicNotes } from "@/hooks/useNotes";
 
+import { useAdminStats } from "@/hooks/useAdminStats";
+
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
 const pie = [
@@ -50,6 +52,8 @@ function AdminPage() {
 
   // Fetch real public notes for the "Most downloaded" list and trending subjects
   const { data: publicNotes = [], isLoading: notesLoading } = usePublicNotes();
+
+const { data: stats } = useAdminStats();
 
   if (!isAdmin()) {
     // Render nothing while redirecting
@@ -128,12 +132,12 @@ function AdminPage() {
             accent="secondary"
           />
           <StatCard
-            label="Active Users"
-            value={0}
-            delta="backend endpoint needed"
-            icon={Activity}
-            accent="success"
-          />
+    label="Total Users"
+    value={stats?.data?.totalUsers ?? 0}
+    delta="registered users"
+    icon={Users}
+    accent="success"
+/>
           <StatCard
             label="Storage Used"
             value={0}
