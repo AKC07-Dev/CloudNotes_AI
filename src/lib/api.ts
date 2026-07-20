@@ -330,6 +330,10 @@ function buildQueryString(params: { [key: string]: unknown }): string {
 /**
  * Upload file directly to S3 using a presigned URL.
  */
+export async function getAdminStats() {
+  return api.get("/admin/stats");
+}
+
 export async function uploadFileToS3(
   presignedUrl: string,
   file: File
